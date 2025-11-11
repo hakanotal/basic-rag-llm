@@ -1,0 +1,12 @@
+[project]
+name = "ist533"
+version = "0.1.0"
+description = "Vector Search-Based RAG System for Document Retrieval"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "docling>=2.0.0",
+    "qdrant-client>=1.11.0",
+    "ollama>=0.3.0",
+    "streamlit>=1.28.0",
+]
