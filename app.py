@@ -1,17 +1,40 @@
 """Streamlit app for RAG system."""
 
 import streamlit as st
+from pathlib import Path
 from src import settings, EmbeddingGenerator, VectorStore, Retriever, Generator, DocumentProcessor, TextChunker
 
 st.set_page_config(page_title="RAG - Document Q&A", page_icon="📚", layout="wide")
-st.title("📚 RAG - Document Q&A System")
+st.title("📚 RAG - Document Q&A System | CIST 533 Final Project")
 st.markdown("Ask questions about your uploaded documents!")
+
+def ensure_sample_indexed(vector_store, embedder):
+    """Ensure sample.pdf is indexed on startup (for Streamlit Cloud)."""
+    try:
+        info = vector_store.get_collection_info()
+        if info['points_count'] == 0:
+            sample_pdf = settings.uploads_dir / "sample.pdf"
+            if sample_pdf.exists():
+                st.info("🔄 Indexing sample document for demo...")
+                processor = DocumentProcessor()
+                documents = [processor.process_pdf(sample_pdf)]
+                chunker = TextChunker(settings.chunk_size, settings.chunk_overlap)
+                chunks = chunker.chunk_documents(documents)
+                chunks_with_embeddings = embedder.embed_chunks(chunks)
+                vector_store.add_chunks(chunks_with_embeddings)
+                st.success(f"✅ Indexed sample document ({len(chunks)} chunks)")
+    except Exception as e:
+        st.warning(f"Could not auto-index sample: {str(e)}")
 
 @st.cache_resource
 def load_components():
     try:
         embedder = EmbeddingGenerator(settings.embedding_model, settings.ollama_host)
-        vector_store = VectorStore(settings.qdrant_collection_name, settings.qdrant_host, settings.qdrant_port, settings.vector_size)
+        vector_store = VectorStore(settings.collection_name, str(settings.chroma_dir))
+        
+        # Auto-index sample PDF if database is empty
+        ensure_sample_indexed(vector_store, embedder)
+        
         retriever = Retriever(embedder, vector_store)
         generator = Generator(settings.llm_model, settings.ollama_host)
         info = vector_store.get_collection_info()
@@ -22,6 +45,8 @@ def load_components():
 retriever, generator, collection_info, error = load_components()
 
 with st.sidebar:
+    st.info("📌 **Demo Note**: A sample PDF is pre-indexed. Uploads persist only during this session.")
+    
     st.subheader("Upload PDFs")
     uploaded_files = st.file_uploader("Choose PDF files", type=['pdf'], accept_multiple_files=True, help="Upload PDF documents to index")
     
@@ -57,12 +82,7 @@ with st.sidebar:
                     # Delete existing collection
                     if not error and collection_info:
                         try:
-                            vs = VectorStore(
-                                settings.qdrant_collection_name,
-                                settings.qdrant_host,
-                                settings.qdrant_port,
-                                settings.vector_size
-                            )
+                            vs = VectorStore(settings.collection_name, str(settings.chroma_dir))
                             vs.delete_collection()
                             st.info("✓ Cleared existing index")
                         except:
@@ -90,12 +110,7 @@ with st.sidebar:
                         st.info(f"✓ Generated embeddings")
                         
                         # Store in vector database
-                        vector_store = VectorStore(
-                            settings.qdrant_collection_name,
-                            settings.qdrant_host,
-                            settings.qdrant_port,
-                            settings.vector_size
-                        )
+                        vector_store = VectorStore(settings.collection_name, str(settings.chroma_dir))
                         vector_store.add_chunks(chunks_with_embeddings)
                         
                         st.success(f"✓ Indexed {len(chunks_with_embeddings)} chunks from {len(documents)} documents!")
@@ -117,7 +132,7 @@ with st.sidebar:
     if error:
         st.divider()
         st.error(f"Error: {error}")
-        st.warning("Make sure Ollama and Qdrant are running!")
+        st.warning("Make sure Ollama is running!")
 
 if error:
     st.error("System not ready. Check sidebar for details.")

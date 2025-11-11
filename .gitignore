@@ -14,8 +14,18 @@ env/
 # Log files
 *.log
 
-# Processed files
-processed/
+# Processed files (keep sample.md for demo)
+processed/*
+!processed/.gitkeep
+!processed/Analyzing Corporate Privacy Policies using AI Chatbots.md
+
+# ChromaDB (ephemeral, rebuilt from sample on startup)
+chroma_db/
+
+# Uploads (keep sample.pdf for demo)
+uploads/*
+!uploads/.gitkeep
+!uploads/Analyzing Corporate Privacy Policies using AI Chatbots.pdf
 
 # IDE
 .vscode/

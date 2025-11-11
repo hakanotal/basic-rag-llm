@@ -9,7 +9,7 @@ Vector Search-Based Retrieval-Augmented Generation system for document Q&A.
 uv sync
 ```
 
-### 2. Start Services
+### 2. Start Ollama & Pull Models
 ```bash
 # Terminal 1: Start Ollama
 ollama serve
@@ -17,9 +17,6 @@ ollama serve
 # Terminal 2: Pull models
 ollama pull nomic-embed-text:v1.5
 ollama pull llama3.2:latest
-
-# Terminal 3: Start Qdrant
-docker run -p 6333:6333 qdrant/qdrant
 ```
 
 ### 3. Run Q&A Interface
@@ -29,9 +26,11 @@ uv run streamlit run app.py
 
 Open browser to http://localhost:8501
 
-- Upload PDFs using the sidebar
+**Try the demo:**
+- A sample PDF is automatically indexed on startup
+- Try asking: "What is a RAG system?" or "What are the key components?"
+- Upload your own PDFs using the sidebar
 - Click "Reindex Documents" to process them
-- Start asking questions!
 
 ## Project Structure
 
@@ -42,11 +41,13 @@ Open browser to http://localhost:8501
 │   ├── document_processor.py  # PDF → Markdown
 │   ├── chunker.py             # Text chunking
 │   ├── embeddings.py          # Vector generation
-│   ├── vector_store.py        # Qdrant integration
+│   ├── vector_store.py        # ChromaDB integration
 │   ├── retriever.py           # Query & retrieval
 │   └── generator.py           # Answer generation
 ├── uploads/                   # Input PDFs
-└── processed/                 # Output markdown
+│   └── sample.pdf             # Demo document (committed to repo)
+├── processed/                 # Output markdown
+└── chroma_db/                 # Local vector database (auto-created)
 ```
 
 ## Configuration
@@ -55,13 +56,13 @@ Edit `src/config.py` to customize:
 - `embedding_model` - Embedding model name
 - `llm_model` - LLM for answer generation
 - `chunk_size` / `chunk_overlap` - Chunking parameters
-- `qdrant_host` / `qdrant_port` - Database connection
+- `chroma_dir` - Local database directory
 
 ## Dependencies
 
 - Python 3.12+
 - Ollama (embedding + LLM)
-- Qdrant (vector database)
+- ChromaDB (local vector database)
 - Streamlit (web interface)
 - UV (package manager)
 
