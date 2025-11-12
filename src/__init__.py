@@ -8,8 +8,22 @@ from .vector_store import VectorStore
 from .retriever import Retriever
 from .generator import Generator
 
-__version__ = "1.0.0"
+# Ollama alternatives (for local/backup use)
+from .embeddings_ollama import EmbeddingGenerator as OllamaEmbeddingGenerator
+from .generator_ollama import Generator as OllamaGenerator
 
-__all__ = ['settings', 'DocumentProcessor', 'TextChunker', 'EmbeddingGenerator', 'VectorStore', 'Retriever', 'Generator']
+__version__ = "2.0.0"
+
+__all__ = [
+    'settings',
+    'DocumentProcessor',
+    'TextChunker',
+    'EmbeddingGenerator',
+    'VectorStore',
+    'Retriever',
+    'Generator',
+    'OllamaEmbeddingGenerator',
+    'OllamaGenerator',
+]
 
 

@@ -1,42 +1,37 @@
-"""LLM-based answer generation using Google Gemini API."""
+"""LLM-based answer generation."""
 
 import logging
-import os
-from google import genai
+import ollama
 
 logger = logging.getLogger(__name__)
 
 
 class Generator:
-    def __init__(self, model_name: str = "gemini-2.0-flash-exp"):
+    def __init__(self, model_name: str = "llama3.2:latest", host: str = "http://localhost:11434"):
         self.model_name = model_name
-        
-        # Check for API key
-        api_key = os.getenv('GEMINI_API_KEY')
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY environment variable not set")
-        
-        self.client = genai.Client(api_key=api_key)
-        logger.info(f"Generator initialized (Gemini {model_name})")
+        self.host = host
+        self.client = ollama.Client(host=host)
+        logger.info(f"Generator initialized ({model_name})")
     
     def generate_answer(self, query: str, context: str, max_tokens: int = 500) -> str:
-        """Generate a complete answer (non-streaming)."""
         prompt = self._build_prompt(query, context)
         logger.info(f"Generating answer (max_tokens={max_tokens})...")
         
         try:
-            response = self.client.models.generate_content(
+            response = self.client.generate(
                 model=self.model_name,
-                contents=prompt,
-                config={
-                    'max_output_tokens': max_tokens,
+                prompt=prompt,
+                options={
+                    'num_predict': max_tokens,
                     'temperature': 0.7,
                     'top_p': 0.9,
                     'top_k': 40,
-                }
+                    'repeat_penalty': 1.1,
+                },
+                stream=False
             )
             
-            answer = response.text
+            answer = response['response']
             logger.info(f"Generated {len(answer)} chars (~{len(answer.split())} words)")
             return answer
             
@@ -45,27 +40,29 @@ class Generator:
             return f"Error: {str(e)}"
     
     def generate_answer_stream(self, query: str, context: str, max_tokens: int = 500):
-        """Generate answer with streaming (yields text chunks)."""
         prompt = self._build_prompt(query, context)
         logger.info(f"Streaming answer (max_tokens={max_tokens})...")
         
         try:
-            response_stream = self.client.models.generate_content_stream(
+            response_stream = self.client.generate(
                 model=self.model_name,
-                contents=prompt,
-                config={
-                    'max_output_tokens': max_tokens,
+                prompt=prompt,
+                options={
+                    'num_predict': max_tokens,
                     'temperature': 0.7,
                     'top_p': 0.9,
                     'top_k': 40,
-                }
+                    'repeat_penalty': 1.1,
+                },
+                stream=True
             )
             
             full_text = ""
             for chunk in response_stream:
-                if chunk.text:
-                    full_text += chunk.text
-                    yield chunk.text
+                if 'response' in chunk:
+                    text = chunk['response']
+                    full_text += text
+                    yield text
             
             logger.info(f"Stream complete ({len(full_text)} chars)")
             
@@ -74,7 +71,6 @@ class Generator:
             yield f"Error: {str(e)}"
     
     def _build_prompt(self, query: str, context: str) -> str:
-        """Build the prompt with context and instructions."""
         return f"""You are a helpful assistant that provides detailed answers based on the provided context.
 
 Context:

@@ -1,6 +1,7 @@
 """Streamlit app for RAG system."""
 
 import streamlit as st
+import os
 from pathlib import Path
 from src import settings, EmbeddingGenerator, VectorStore, Retriever, Generator, DocumentProcessor, TextChunker
 
@@ -8,35 +9,43 @@ st.set_page_config(page_title="RAG - Document Q&A", page_icon="📚", layout="wi
 st.title("📚 RAG - Document Q&A System | CIST 533 Final Project")
 st.markdown("Ask questions about your uploaded documents!")
 
+# Check for Gemini API key
+if not os.getenv('GEMINI_API_KEY'):
+    st.error("⚠️ GEMINI_API_KEY environment variable not set!")
+    st.info("Set it in Streamlit Cloud: Settings → Secrets → Add: `GEMINI_API_KEY = \"your-key-here\"`")
+    st.stop()
+
 def ensure_sample_indexed(vector_store, embedder):
-    """Ensure sample.pdf is indexed on startup (for Streamlit Cloud)."""
+    """Ensure sample PDF is indexed on startup (for Streamlit Cloud)."""
     try:
         info = vector_store.get_collection_info()
         if info['points_count'] == 0:
-            sample_pdf = settings.uploads_dir / "sample.pdf"
-            if sample_pdf.exists():
-                st.info("🔄 Indexing sample document for demo...")
+            # Look for any PDF in uploads directory
+            pdf_files = list(settings.uploads_dir.glob("*.pdf"))
+            if pdf_files:
+                sample_pdf = pdf_files[0]  # Use first PDF found
+                st.info(f"🔄 Indexing demo document: {sample_pdf.name}...")
                 processor = DocumentProcessor()
                 documents = [processor.process_pdf(sample_pdf)]
                 chunker = TextChunker(settings.chunk_size, settings.chunk_overlap)
                 chunks = chunker.chunk_documents(documents)
                 chunks_with_embeddings = embedder.embed_chunks(chunks)
                 vector_store.add_chunks(chunks_with_embeddings)
-                st.success(f"✅ Indexed sample document ({len(chunks)} chunks)")
+                st.success(f"✅ Indexed {len(chunks)} chunks from {sample_pdf.name}")
     except Exception as e:
         st.warning(f"Could not auto-index sample: {str(e)}")
 
 @st.cache_resource
 def load_components():
     try:
-        embedder = EmbeddingGenerator(settings.embedding_model, settings.ollama_host)
+        embedder = EmbeddingGenerator(settings.gemini_embedding_model)
         vector_store = VectorStore(settings.collection_name, str(settings.chroma_dir))
         
         # Auto-index sample PDF if database is empty
         ensure_sample_indexed(vector_store, embedder)
         
         retriever = Retriever(embedder, vector_store)
-        generator = Generator(settings.llm_model, settings.ollama_host)
+        generator = Generator(settings.gemini_llm_model)
         info = vector_store.get_collection_info()
         return retriever, generator, info, None
     except Exception as e:
@@ -45,7 +54,6 @@ def load_components():
 retriever, generator, collection_info, error = load_components()
 
 with st.sidebar:
-    st.info("📌 **Demo Note**: A sample PDF is pre-indexed. Uploads persist only during this session.")
     
     st.subheader("Upload PDFs")
     uploaded_files = st.file_uploader("Choose PDF files", type=['pdf'], accept_multiple_files=True, help="Upload PDF documents to index")
@@ -105,7 +113,7 @@ with st.sidebar:
                         st.info(f"✓ Created {len(chunks)} chunks")
                         
                         # Generate embeddings
-                        embedder = EmbeddingGenerator(settings.embedding_model, settings.ollama_host)
+                        embedder = EmbeddingGenerator(settings.gemini_embedding_model)
                         chunks_with_embeddings = embedder.embed_chunks(chunks)
                         st.info(f"✓ Generated embeddings")
                         
@@ -132,7 +140,7 @@ with st.sidebar:
     if error:
         st.divider()
         st.error(f"Error: {error}")
-        st.warning("Make sure Ollama is running!")
+        st.info("💡 This app uses Google Gemini API. Make sure GEMINI_API_KEY is set.")
 
 if error:
     st.error("System not ready. Check sidebar for details.")

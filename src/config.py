@@ -1,6 +1,7 @@
 """Configuration for the RAG system."""
 
 from pathlib import Path
+import os
 
 
 class Settings:
@@ -9,13 +10,20 @@ class Settings:
     processed_dir: Path = project_root / "processed"
     chroma_dir: Path = project_root / "chroma_db"
     
-    ollama_host: str = "http://localhost:11434"
-    embedding_model: str = "nomic-embed-text:v1.5"
-    llm_model: str = "llama3.2:latest"
+    # Gemini API (primary)
+    gemini_embedding_model: str = "text-embedding-004"
+    gemini_llm_model: str = "gemini-2.5-flash-lite"
     
+    # Ollama (backup/local option)
+    ollama_host: str = "http://localhost:11434"
+    ollama_embedding_model: str = "nomic-embed-text:v1.5"
+    ollama_llm_model: str = "llama3.2:latest"
+    
+    # Vector store
     collection_name: str = "documents"
     vector_size: int = 768
     
+    # Chunking
     chunk_size: int = 1000
     chunk_overlap: int = 200
     
