@@ -834,6 +834,7 @@ dependencies = [
     { name = "docling" },
     { name = "google-genai" },
     { name = "ollama" },
+    { name = "python-dotenv" },
     { name = "streamlit" },
 ]
 
@@ -843,6 +844,7 @@ requires-dist = [
     { name = "docling", specifier = ">=2.0.0" },
     { name = "google-genai", specifier = ">=1.49.0" },
     { name = "ollama", specifier = ">=0.3.0" },
+    { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "streamlit", specifier = ">=1.28.0" },
 ]
 

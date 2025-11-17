@@ -44,30 +44,67 @@ class EmbeddingGenerator:
             logger.error(f"Text length: {len(text)} chars, preview: {text[:100]}...")
             raise
     
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for multiple texts."""
-        logger.info(f"Generating embeddings for {len(texts)} texts...")
-        embeddings = []
-        failed_indices = []
+    def embed_batch(self, texts: List[str], batch_size: int = 100) -> List[List[float]]:
+        """Generate embeddings for multiple texts using batch API calls.
         
-        for i, text in enumerate(texts):
+        Args:
+            texts: List of texts to embed
+            batch_size: Maximum number of texts to send in a single API call (default 100)
+        """
+        logger.info(f"Generating embeddings for {len(texts)} texts in batches of {batch_size}...")
+        
+        # Preprocess all texts
+        max_chars = 10000
+        processed_texts = []
+        for text in texts:
+            text = text.strip()
+            if not text:
+                text = "empty"
+            if len(text) > max_chars:
+                text = text[:max_chars]
+            processed_texts.append(text)
+        
+        all_embeddings = []
+        failed_batches = []
+        
+        # Process in batches
+        for i in range(0, len(processed_texts), batch_size):
+            batch = processed_texts[i:i + batch_size]
+            batch_num = i // batch_size + 1
+            total_batches = (len(processed_texts) + batch_size - 1) // batch_size
+            
             try:
-                embeddings.append(self.embed_text(text))
-                if (i + 1) % 10 == 0:
-                    logger.info(f"Progress: {i + 1}/{len(texts)}")
-                    
+                # Make a single API call for the entire batch
+                result = self.client.models.embed_content(
+                    model=self.model_name,
+                    contents=batch
+                )
+                
+                # Extract embeddings from batch result
+                batch_embeddings = [emb.values for emb in result.embeddings]
+                all_embeddings.extend(batch_embeddings)
+                
+                logger.info(f"Batch {batch_num}/{total_batches} completed: {len(batch_embeddings)} embeddings")
+                
             except Exception as e:
-                logger.error(f"Failed on chunk {i+1}/{len(texts)}: {str(e)}")
-                failed_indices.append(i)
-                # Use zero vector as fallback
-                logger.warning(f"Using zero vector for failed chunk {i+1}")
-                embeddings.append([0.0] * 768)  # text-embedding-004 is 768 dims
+                logger.error(f"Batch {batch_num}/{total_batches} failed: {str(e)}")
+                failed_batches.append((i, i + len(batch)))
+                
+                # Fallback: try individual embeddings for failed batch
+                logger.warning(f"Attempting individual embeddings for failed batch {batch_num}...")
+                for j, text in enumerate(batch):
+                    try:
+                        all_embeddings.append(self.embed_text(text))
+                    except Exception as fallback_error:
+                        logger.error(f"Failed individual embedding at index {i+j}: {str(fallback_error)}")
+                        # Use zero vector as last resort
+                        all_embeddings.append([0.0] * 768)  # text-embedding-004 is 768 dims
         
-        if failed_indices:
-            logger.warning(f"Failed to embed {len(failed_indices)} chunks: {failed_indices[:10]}...")
+        if failed_batches:
+            logger.warning(f"Failed batches (recovered via fallback): {failed_batches}")
         
-        logger.info(f"Generated {len(embeddings)} embeddings ({len(embeddings) - len(failed_indices)} successful)")
-        return embeddings
+        logger.info(f"Generated {len(all_embeddings)} embeddings total")
+        return all_embeddings
     
     def embed_chunks(self, chunks: List[dict]) -> List[dict]:
         """Add embeddings to chunk dictionaries."""

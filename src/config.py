@@ -2,7 +2,9 @@
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class Settings:
     project_root: Path = Path(__file__).parent.parent
